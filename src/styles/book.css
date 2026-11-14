@@ -1,0 +1,607 @@
+/* =====================================================================
+   Estilos del libro. Colores y tiempos de animación están arriba, en :root.
+   ===================================================================== */
+:root {
+  --cover: #6b1f2a; /* color de la portada */
+  --cover-dark: #4a1119;
+  --gold: #d9b56a; /* título y ornamentos */
+  --paper: #fbf6ea;
+  --paper-edge: #e9dfc8;
+  --ink: #3a2b22;
+  --ink-soft: #7a685a;
+  --cover-ms: 1150ms; /* apertura de la portada (igual que COVER_MS en Book.vue) */
+  --flip-ms: 950ms; /* paso de hoja (igual que FLIP_MS en Book.vue) */
+  --hand: 'Segoe Script', 'Bradley Hand', 'Snell Roundhand', 'Apple Chancery', 'URW Chancery L', 'Brush Script MT', cursive;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--serif);
+  color: var(--ink);
+  background: radial-gradient(ellipse at 50% 35%, #4a3326 0%, #2a1d17 60%, #1a110d 100%);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+}
+
+/* ---------- Escenario y libro ---------- */
+.bk-stage {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.bk-book {
+  --w: min(90vw, calc(76dvh * 0.714), 540px);
+  position: relative;
+  width: var(--w);
+  aspect-ratio: 5 / 7;
+  /* La perspectiva debe estar en el padre directo de las hojas */
+  perspective: 2200px;
+  perspective-origin: 50% 40%;
+}
+
+.bk-book::before {
+  content: '';
+  position: absolute;
+  inset: 3px -7px -7px 3px;
+  border-radius: 3px 8px 8px 3px;
+  background: repeating-linear-gradient(90deg, #efe6d1 0 2px, #d9cdb3 2px 3px);
+  box-shadow: 0 22px 30px rgb(0 0 0 / 0.5);
+  z-index: 0;
+}
+
+/* ---------- Hojas ----------
+   ANIMACIÓN DE PASO DE HOJA (avance Y retroceso).
+   Una hoja pasada tiene la clase .bk-flipped (rotateY -178deg). Avanzar
+   la añade y retroceder la quita: es la MISMA transición (misma duración
+   y misma curva), por eso ambos sentidos se ven igual de naturales.
+   - --flip-ms / --cover-ms: duración.
+   - --st: retraso por hoja cuando se saltan varias desde el índice.
+   - La hoja se desvanece al terminar de aterrizar (avance) y se
+     desvanece al empezar a levantarse (retroceso): mismo tiempo, espejado. */
+.bk-leaf {
+  --ease-page: cubic-bezier(0.45, 0.05, 0.25, 1);
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition:
+    transform var(--flip-ms) var(--ease-page) var(--st, 0ms),
+    visibility 0s linear var(--st, 0ms);
+  visibility: visible;
+  will-change: transform;
+}
+
+.bk-cover {
+  --st: 0ms;
+  transition-duration: var(--cover-ms), 0s;
+}
+
+.bk-leaf.bk-flipped {
+  transform: rotateY(-178deg);
+  pointer-events: none;
+  /* Se oculta cuando termina la animación */
+  visibility: hidden;
+  transition-delay: var(--st, 0ms), calc(var(--flip-ms) + var(--st, 0ms));
+}
+
+.bk-cover.bk-flipped {
+  transition-delay: 0s, var(--cover-ms);
+}
+
+.bk-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 3px 8px 8px 3px;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  /* Retroceso: la hoja aparece durante el primer tramo del giro */
+  transition: opacity 0.35s ease var(--st, 0ms);
+}
+
+.bk-flipped .bk-face {
+  opacity: 0;
+  /* Avance: la hoja se desvanece en el último tramo del giro */
+  transition: opacity 0.35s ease calc(0.55s + var(--st, 0ms));
+}
+
+.bk-back {
+  transform: rotateY(180deg);
+}
+
+/* Reinicio instantáneo (al volver a la portada) */
+.bk-noanim .bk-leaf,
+.bk-noanim .bk-face {
+  transition: none !important;
+}
+
+.bk-stage {
+  touch-action: pan-y; /* permite detectar el swipe horizontal */
+}
+
+/* ---------- Papel ---------- */
+.bk-paper {
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 0.16), rgb(0 0 0 / 0) 7%),
+    radial-gradient(ellipse at 30% 20%, #fffdf6, var(--paper) 70%);
+}
+
+.bk-paper-back {
+  background:
+    linear-gradient(270deg, rgb(0 0 0 / 0.14), rgb(0 0 0 / 0) 8%),
+    var(--paper-edge);
+}
+
+.bk-endpaper {
+  background:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.05) 0 6px, transparent 6px 12px),
+    var(--cover-dark);
+}
+
+/* ---------- Portada ---------- */
+.bk-cover {
+  cursor: pointer;
+  outline-offset: 4px;
+}
+
+.bk-cover-front {
+  display: grid;
+  place-items: center;
+  padding: 7%;
+  color: var(--gold);
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 0.35) 0, rgb(255 255 255 / 0.07) 4%, rgb(0 0 0 / 0) 9%),
+    radial-gradient(ellipse at 35% 25%, #86303c, var(--cover) 55%, var(--cover-dark));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+.bk-cover-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  width: 100%;
+  height: 100%;
+  padding: 6%;
+  text-align: center;
+  border: 2px solid var(--gold);
+  outline: 1px solid var(--gold);
+  outline-offset: -8px;
+  border-radius: 4px;
+}
+
+.bk-cover-flower {
+  width: 38%;
+  max-width: 150px;
+  color: var(--gold);
+}
+
+.bk-title {
+  margin: 0;
+  font-family: var(--hand);
+  font-weight: 400;
+  font-size: clamp(1.9rem, 7.2vw, 3.1rem);
+  line-height: 1.15;
+  text-shadow: 0 2px 6px rgb(0 0 0 / 0.45);
+}
+
+.bk-subtitle {
+  margin: 0.4em 0 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+/* ---------- Páginas (contenido) ---------- */
+.bk-page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 7% 7% 6% 10%;
+  outline: none;
+  cursor: pointer;
+}
+
+.bk-page:focus-visible {
+  box-shadow: inset 0 0 0 3px rgb(217 181 106 / 0.7);
+}
+
+.bk-hint {
+  margin: 0.5rem 0 0;
+  min-height: 1.4em;
+  text-align: center;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.bk-hint-pulse {
+  animation: bk-pulse 2s ease-in-out infinite;
+}
+
+@keyframes bk-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Dedicatoria / final */
+.bk-dedication-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.1em;
+  padding: 0 3%;
+  font-family: var(--hand);
+  color: var(--ink);
+}
+
+.bk-dedication-para {
+  margin: 0;
+  font-size: clamp(1.3rem, 5vw, 1.9rem);
+}
+
+.bk-dedication-text {
+  margin: 0;
+  white-space: pre-line;
+  font-size: clamp(1rem, 3.8vw, 1.35rem);
+  line-height: 1.75;
+}
+
+.bk-dedication-sign {
+  margin: 0;
+  text-align: right;
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
+}
+
+.bk-end .bk-dedication-inner {
+  align-items: center;
+  text-align: center;
+}
+
+.bk-end-text {
+  margin: 0;
+  font-size: clamp(2.4rem, 9vw, 3.6rem);
+}
+
+/* Foto */
+.bk-photo-area {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  container-type: size;
+}
+
+.bk-frame {
+  position: relative;
+  width: min(100cqw, calc(100cqh * var(--ar, 1.33)));
+  aspect-ratio: var(--ar, 1.33);
+  background: #ddd;
+  box-shadow: 0 0 0 9px #fffdf7, 0 0 0 10px rgb(0 0 0 / 0.08), 0 6px 16px rgb(0 0 0 / 0.3);
+}
+
+.bk-frame img,
+.bk-oil {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.bk-frame img {
+  object-fit: cover;
+}
+
+.bk-oil {
+  opacity: 0;
+  transition: opacity 0.2s linear;
+}
+
+.bk-oil-show {
+  opacity: 1;
+}
+
+.bk-num {
+  position: absolute;
+  left: 10%;
+  top: 3.2%;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  opacity: 0.8;
+}
+
+/* ---------- Nota ---------- */
+.bk-note-backdrop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 9%;
+  background: rgb(30 18 10 / 0.45);
+  cursor: default;
+}
+
+.bk-note {
+  width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.4rem 1.3rem 1.1rem;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #fffbe9, #f6edcf);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.4), inset 0 0 0 1px rgb(120 90 30 / 0.15);
+  transform: rotate(-1deg);
+}
+
+.bk-note-text {
+  margin: 0;
+  white-space: pre-line;
+  font-family: var(--hand);
+  font-size: clamp(1rem, 3.8vw, 1.3rem);
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.bk-note-close {
+  align-self: center;
+  padding: 0.5rem 1.4rem;
+  border: 1px solid #a98a45;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b5122;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.bk-note-close:hover {
+  background: rgb(169 138 69 / 0.15);
+}
+
+.bk-note-enter-active,
+.bk-note-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.bk-note-enter-active .bk-note,
+.bk-note-leave-active .bk-note {
+  transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.bk-note-enter-from,
+.bk-note-leave-to {
+  opacity: 0;
+}
+
+.bk-note-enter-from .bk-note,
+.bk-note-leave-to .bk-note {
+  transform: translateY(14px) rotate(-3deg) scale(0.96);
+}
+
+/* ---------- ZONAS DE INTERACCIÓN: esquinas dobladas ----------
+   Son parte de la hoja. Abajo a la derecha = siguiente, abajo a la
+   izquierda = anterior (en la primera hoja cierra el libro). */
+.bk-corner {
+  position: absolute;
+  bottom: 0;
+  z-index: 5;
+  width: clamp(46px, 13%, 70px);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  filter: drop-shadow(0 -1px 2px rgb(60 40 20 / 0.25));
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+}
+
+.bk-corner:disabled {
+  cursor: default;
+}
+
+.bk-corner-next {
+  right: 0;
+  transform-origin: 100% 100%;
+}
+
+.bk-corner-prev {
+  left: 0;
+  transform-origin: 0 100%;
+}
+
+/* Solapa doblada (el pliegue) */
+.bk-corner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bk-corner-next::before {
+  background: linear-gradient(135deg, transparent 49%, rgb(60 40 20 / 0.28) 50%, #e4d8b8 53%, #f8f1de 100%);
+  border-bottom-right-radius: 8px;
+}
+
+.bk-corner-prev::before {
+  background: linear-gradient(225deg, transparent 49%, rgb(60 40 20 / 0.28) 50%, #e4d8b8 53%, #f8f1de 100%);
+  border-bottom-left-radius: 8px;
+}
+
+/* Pequeña flecha dorada sobre la solapa */
+.bk-corner::after {
+  content: '';
+  position: absolute;
+  bottom: 22%;
+  width: 22%;
+  aspect-ratio: 1;
+  border-top: 2px solid #a98a45;
+  pointer-events: none;
+}
+
+.bk-corner-next::after {
+  right: 22%;
+  border-right: 2px solid #a98a45;
+  transform: rotate(45deg);
+}
+
+.bk-corner-prev::after {
+  left: 22%;
+  border-left: 2px solid #a98a45;
+  transform: rotate(-45deg);
+}
+
+.bk-corner:not(:disabled):hover {
+  transform: scale(1.22);
+}
+
+.bk-corner:not(:disabled):active {
+  transform: scale(1.05);
+}
+
+.bk-corner:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -3px;
+}
+
+/* ---------- Marcapáginas (abre el índice) ---------- */
+.bk-ribbon {
+  position: absolute;
+  top: -2px;
+  right: 11%;
+  z-index: 6;
+  width: 26px;
+  height: 58px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35));
+  transition: transform 0.2s ease;
+}
+
+.bk-ribbon span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #8c2a38, var(--cover) 50%, #8c2a38);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+}
+
+.bk-ribbon:hover,
+.bk-ribbon[aria-expanded='true'] {
+  transform: translateY(5px);
+}
+
+.bk-ribbon:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ---------- Índice (sobre la hoja) ---------- */
+.bk-index-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 8% 8% 12%;
+  background: rgb(30 18 10 / 0.4);
+}
+
+.bk-index {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  padding: 1rem 1rem 1.1rem;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #fffbe9, #f6edcf);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.4), inset 0 0 0 1px rgb(120 90 30 / 0.15);
+  font-family: var(--hand);
+}
+
+.bk-index-title {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.2rem, 4.6vw, 1.6rem);
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.bk-index-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.4rem, 1fr));
+  gap: 0.4rem;
+}
+
+.bk-index button {
+  min-height: 2.2rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgb(169 138 69 / 0.55);
+  border-radius: 999px;
+  background: transparent;
+  color: #5b4520;
+  font-family: var(--hand);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.bk-index button:hover {
+  background: rgb(169 138 69 / 0.18);
+}
+
+.bk-index button.bk-on {
+  background: var(--cover);
+  border-color: var(--cover);
+  color: var(--gold);
+}
+
+/* ---------- Accesibilidad ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .bk-leaf,
+  .bk-face {
+    transition-duration: 0.01s !important;
+    transition-delay: 0s !important;
+  }
+  .bk-corner,
+  .bk-ribbon {
+    transition: none;
+  }
+  .bk-hint-pulse {
+    animation: none;
+  }
+}

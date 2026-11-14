@@ -1,0 +1,23 @@
+{
+  "name": "nuestro-jardin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Álbum de fotos interactivo con efecto óleo.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node scripts/test-engine.mjs && node scripts/test-nav.mjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.7"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
