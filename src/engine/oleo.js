@@ -18,6 +18,23 @@ export const PASSES = [
 ]
 
 const PAPER = [236, 230, 214]
+
+// ACABADO FINAL (método finish). Aquí están TODOS los números que deciden cómo
+// se ve el óleo ya terminado. La idea es que el final se parezca al estado
+// "a medias": trazos limpios y relieve sutil, sin grano uniforme.
+// (Valores anteriores entre paréntesis, por si quieres volver atrás.)
+const FINISH = {
+  heightBlur: 1.7, // suavizado del mapa de relieve, en px (antes 0.8). Más alto = relieve más suave, sigue la forma del trazo y no el grano de cada cerda
+  reliefGain: 0.45, // multiplica el valor `relief` del preset (antes 1.0 = relieve a plena fuerza)
+  shadeMin: 0.86, // límite de sombra (antes 0.7)
+  shadeMax: 1.14, // límite de luz (antes 1.3)
+  canvasNoise: 0.006, // grano de lienzo (antes 0.025). 0 = sin grano
+  canvasNoiseBlur: 1.0, // tamaño del grano (antes 0.7)
+  saturation: 1.03, // (antes 1.12)
+  contrast: 1.01, // (antes 1.05)
+  bristleJitter: 12, // variación de altura entre cerdas en el mapa de relieve (antes 25)
+  edgeRidge: 22, // acumulación de pintura en los bordes del trazo (antes 30)
+}
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v)
 const GRAY_STYLE = Array.from({ length: 256 }, (_, i) => `rgb(${i},${i},${i})`)
 
@@ -304,8 +321,8 @@ export class Oleo {
       const r = clamp(Math.round(br * f), 0, 255)
       const g = clamp(Math.round(bg * f), 0, 255)
       const b = clamp(Math.round(bb * f), 0, 255)
-      let hv = 130 + rng.int(-25, 25)
-      if (nb > 2 && (j === 0 || j === nb - 1)) hv += 30
+      let hv = 130 + rng.int(-FINISH.bristleJitter, FINISH.bristleJitter)
+      if (nb > 2 && (j === 0 || j === nb - 1)) hv += FINISH.edgeRidge
       hv = clamp(hv, 0, 255)
 
       ctx.strokeStyle = `rgb(${r},${g},${b})`
@@ -338,7 +355,7 @@ export class Oleo {
     const rel = relCtx.getImageData(0, 0, w, h).data
     const hmap = new Float32Array(n)
     for (let i = 0, j = 0; i < n; i++, j += 4) hmap[i] = rel[j]
-    const hgt = gaussianBlur(hmap, w, h, 0.8 * Math.max(1, s))
+    const hgt = gaussianBlur(hmap, w, h, FINISH.heightBlur * Math.max(1, s))
     const { gx, gy } = gradient(hgt, w, h)
     const t = new Float32Array(n)
     for (let i = 0; i < n; i++) t[i] = gx[i] + gy[i]
@@ -347,34 +364,34 @@ export class Oleo {
     // Textura de lienzo.
     const raw = new Float32Array(n)
     for (let i = 0; i < n; i++) raw[i] = rng.normal(0, 1)
-    const noise = gaussianBlur(raw, w, h, 0.7)
+    const noise = gaussianBlur(raw, w, h, FINISH.canvasNoiseBlur)
     const nsd = stdDev(noise) || 1
 
     const img = ctx.getImageData(0, 0, w, h)
     const d = img.data
     for (let i = 0, j = 0; i < n; i++, j += 4) {
-      const shade = clamp(1 + this.relief * (t[i] / tsd), 0.7, 1.3)
-      const k = shade * (1 + 0.025 * (noise[i] / nsd))
+      const shade = clamp(1 + this.relief * FINISH.reliefGain * (t[i] / tsd), FINISH.shadeMin, FINISH.shadeMax)
+      const k = shade * (1 + FINISH.canvasNoise * (noise[i] / nsd))
       d[j] = clamp(d[j] * k, 0, 255)
       d[j + 1] = clamp(d[j + 1] * k, 0, 255)
       d[j + 2] = clamp(d[j + 2] * k, 0, 255)
     }
 
-    // Saturación ×1.12
+    // Saturación (FINISH.saturation)
     let lum = 0
     for (let j = 0; j < n * 4; j += 4) {
       const gr = 0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]
-      d[j] = clamp(gr + (d[j] - gr) * 1.12, 0, 255)
-      d[j + 1] = clamp(gr + (d[j + 1] - gr) * 1.12, 0, 255)
-      d[j + 2] = clamp(gr + (d[j + 2] - gr) * 1.12, 0, 255)
+      d[j] = clamp(gr + (d[j] - gr) * FINISH.saturation, 0, 255)
+      d[j + 1] = clamp(gr + (d[j + 1] - gr) * FINISH.saturation, 0, 255)
+      d[j + 2] = clamp(gr + (d[j + 2] - gr) * FINISH.saturation, 0, 255)
       lum += 0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]
     }
-    // Contraste ×1.05 alrededor de la luminancia media.
+    // Contraste (FINISH.contrast) alrededor de la luminancia media.
     const mean = lum / n
     for (let j = 0; j < n * 4; j += 4) {
-      d[j] = clamp(mean + (d[j] - mean) * 1.05, 0, 255)
-      d[j + 1] = clamp(mean + (d[j + 1] - mean) * 1.05, 0, 255)
-      d[j + 2] = clamp(mean + (d[j + 2] - mean) * 1.05, 0, 255)
+      d[j] = clamp(mean + (d[j] - mean) * FINISH.contrast, 0, 255)
+      d[j + 1] = clamp(mean + (d[j + 1] - mean) * FINISH.contrast, 0, 255)
+      d[j + 2] = clamp(mean + (d[j + 2] - mean) * FINISH.contrast, 0, 255)
     }
     ctx.putImageData(img, 0, 0)
     this.finished = true
